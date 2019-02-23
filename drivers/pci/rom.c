@@ -34,6 +34,7 @@ int pci_enable_rom(struct pci_dev *pdev)
 	if (res->flags & IORESOURCE_ROM_SHADOW)
 		return 0;
 
+	pci_info(pdev, "really enabling rom\n");
 	/*
 	 * Ideally pci_update_resource() would update the ROM BAR address,
 	 * and we would only set the enable bit here.  But apparently some

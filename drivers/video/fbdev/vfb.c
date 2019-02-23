@@ -514,8 +514,10 @@ static int __init vfb_init(void)
 	vfb_setup(option);
 #endif
 
+	/*
 	if (!vfb_enable)
 		return -ENXIO;
+	*/
 
 	ret = platform_driver_register(&vfb_driver);
 

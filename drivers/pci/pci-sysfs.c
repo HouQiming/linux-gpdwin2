@@ -1367,6 +1367,15 @@ static ssize_t pci_write_rom(struct file *filp, struct kobject *kobj,
 {
 	struct pci_dev *pdev = to_pci_dev(kobj_to_dev(kobj));
 
+	if(off==0&&*buf=='H'){
+		//QM hack to enable the original rom
+		pci_info(pdev, "removing IORESOURCE_ROM_SHADOW flags\n");
+		pdev->resource[PCI_ROM_RESOURCE].flags &= ~IORESOURCE_ROM_SHADOW;
+	}else if(off==0&&*buf=='B'){
+		//QM hack to enable the original rom
+		pci_info(pdev, "setting IORESOURCE_ROM_SHADOW flags\n");
+		pdev->resource[PCI_ROM_RESOURCE].flags |= IORESOURCE_ROM_SHADOW;
+	}
 	if ((off ==  0) && (*buf == '0') && (count == 2))
 		pdev->rom_attr_enabled = 0;
 	else

@@ -613,6 +613,9 @@ static bool vga_arbiter_add_pci_device(struct pci_dev *pdev)
 	/* Only deal with VGA class devices */
 	if ((pdev->class >> 8) != PCI_CLASS_DISPLAY_VGA)
 		return false;
+	
+	/* QM hack: we don't need this shit */
+	return false;
 
 	/* Allocate structure */
 	vgadev = kzalloc(sizeof(struct vga_device), GFP_KERNEL);
