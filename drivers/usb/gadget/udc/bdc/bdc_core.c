@@ -1,10 +1,15 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * bdc_core.c - BRCM BDC USB3.0 device controller core operations
  *
  * Copyright (C) 2014 Broadcom Corporation
  *
  * Author: Ashwini Pahuja
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
+ *
  */
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -172,9 +177,8 @@ static int scratchpad_setup(struct bdc *bdc)
 	/* Refer to BDC spec, Table 4 for description of SPB */
 	sp_buff_size = 1 << (sp_buff_size + 5);
 	dev_dbg(bdc->dev, "Allocating %d bytes for scratchpad\n", sp_buff_size);
-	bdc->scratchpad.buff  =  dma_alloc_coherent(bdc->dev, sp_buff_size,
-						    &bdc->scratchpad.sp_dma,
-						    GFP_KERNEL);
+	bdc->scratchpad.buff  =  dma_zalloc_coherent(bdc->dev, sp_buff_size,
+					&bdc->scratchpad.sp_dma, GFP_KERNEL);
 
 	if (!bdc->scratchpad.buff)
 		goto fail;
@@ -203,9 +207,11 @@ static int setup_srr(struct bdc *bdc, int interrupter)
 	bdc_writel(bdc->regs, BDC_SRRINT(0), BDC_SRR_RWS | BDC_SRR_RST);
 	bdc->srr.dqp_index = 0;
 	/* allocate the status report descriptors */
-	bdc->srr.sr_bds = dma_alloc_coherent(bdc->dev,
-					     NUM_SR_ENTRIES * sizeof(struct bdc_bd),
-					     &bdc->srr.dma_addr, GFP_KERNEL);
+	bdc->srr.sr_bds = dma_zalloc_coherent(
+					bdc->dev,
+					NUM_SR_ENTRIES * sizeof(struct bdc_bd),
+					&bdc->srr.dma_addr,
+					GFP_KERNEL);
 	if (!bdc->srr.sr_bds)
 		return -ENOMEM;
 
@@ -641,6 +647,7 @@ static const struct of_device_id bdc_of_match[] = {
 static struct platform_driver bdc_driver = {
 	.driver		= {
 		.name	= BRCM_BDC_NAME,
+		.owner	= THIS_MODULE,
 		.pm = &bdc_pm_ops,
 		.of_match_table	= bdc_of_match,
 	},

@@ -74,6 +74,7 @@ struct usbg_cmd {
 	struct f_uas *fu;
 	struct completion write_complete;
 	struct kref ref;
+	u64 age;
 
 	/* UAS only */
 	u16 tag;
@@ -81,6 +82,9 @@ struct usbg_cmd {
 	struct sense_iu sense_iu;
 	enum uas_state state;
 	struct uas_stream *stream;
+	volatile u8 write_errored;
+	u16 task_tag;
+	int tmr_code;
 
 	/* BOT only */
 	__le32 bot_tag;
@@ -98,6 +102,7 @@ struct uas_stream {
 struct usbg_cdb {
 	struct usb_request	*req;
 	void			*buf;
+	bool			claimed;
 };
 
 struct bot_status {
@@ -105,6 +110,9 @@ struct bot_status {
 	struct bulk_cs_wrap	csw;
 };
 
+#define UASP_MAX_COMMANDS	16
+#define BOT_MAX_COMMANDS	1
+#define MAX_COMMANDS		UASP_MAX_COMMANDS
 struct f_uas {
 	struct usbg_tpg		*tpg;
 	struct usb_function	function;
@@ -117,9 +125,12 @@ struct f_uas {
 #define USBG_IS_BOT		(1 << 3)
 #define USBG_BOT_CMD_PEND	(1 << 4)
 
-	struct usbg_cdb		cmd;
+	u32			ncmd;
+	struct usbg_cdb		*cmd[MAX_COMMANDS];
 	struct usb_ep		*ep_in;
 	struct usb_ep		*ep_out;
+	/* pending request handling */
+	u64 age;
 
 	/* UAS */
 	struct usb_ep		*ep_status;

@@ -1,6 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2011 LAPIS Semiconductor Co., Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
  */
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 #include <linux/kernel.h>
@@ -1330,7 +1333,7 @@ static void pch_vbus_gpio_work_rise(struct work_struct *irq_work)
 }
 
 /**
- * pch_vbus_gpio_irq() - IRQ handler for GPIO interrupt for changing VBUS
+ * pch_vbus_gpio_irq() - IRQ handler for GPIO intrerrupt for changing VBUS
  * @irq:	Interrupt request number
  * @dev:	Reference to the device structure
  *

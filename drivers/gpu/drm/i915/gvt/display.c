@@ -120,6 +120,7 @@ static unsigned char virtual_dp_monitor_edid[GVT_EDID_NUM][EDID_SIZE] = {
 	},
 	{
 /* EDID with 1920x1200 as its resolution */
+		//[
 		/*Header*/
 		0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00,
 		/* Vendor & Product Identification */
@@ -140,22 +141,21 @@ static unsigned char virtual_dp_monitor_edid[GVT_EDID_NUM][EDID_SIZE] = {
 		 */
 		0xd1, 0xc0, 0x81, 0xc0, 0x81, 0x40, 0x81, 0x80, 0x95, 0x00,
 		0xa9, 0x40, 0xb3, 0x00, 0x01, 0x01,
-		/* 18 Byte Data Blocks 1: max resolution is 1920x1200 */
-		0x28, 0x3c, 0x80, 0xa0, 0x70, 0xb0,
-		0x23, 0x40, 0x30, 0x20, 0x36, 0x00, 0x06, 0x44, 0x21, 0x00, 0x00, 0x1a,
+		/* 18 Byte Data Blocks 4: 1280x720 */
+		26,29,0,128,81,208,28,32,64,128,53,0,77,187,16,0,0,30,
+		/* 18 Byte Data Blocks 1: 1920x1080 */
+		2,58,128,24,113,56,45,64,88,44,69,0,244,25,17,0,0,30,
 		/* 18 Byte Data Blocks 2: invalid */
 		0x00, 0x00, 0x00, 0xfd, 0x00, 0x18, 0x3c, 0x18, 0x50, 0x11, 0x00, 0x0a,
 		0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
 		/* 18 Byte Data Blocks 3: invalid */
 		0x00, 0x00, 0x00, 0xfc, 0x00, 0x48,
 		0x50, 0x20, 0x5a, 0x52, 0x32, 0x34, 0x34, 0x30, 0x77, 0x0a, 0x20, 0x20,
-		/* 18 Byte Data Blocks 4: invalid */
-		0x00, 0x00, 0x00, 0xff, 0x00, 0x43, 0x4e, 0x34, 0x33, 0x30, 0x34, 0x30,
-		0x44, 0x58, 0x51, 0x0a, 0x20, 0x20,
 		/* Extension Block Count */
 		0x00,
 		/* Checksum */
-		0x45,
+		235,
+		//].reduce((a,b)=>a+b,0)&255
 	},
 };
 
@@ -220,7 +220,7 @@ static void emulate_monitor_status_change(struct intel_vgpu *vgpu)
 			~(TRANS_DDI_BPC_MASK | TRANS_DDI_MODE_SELECT_MASK |
 			TRANS_DDI_PORT_MASK);
 		vgpu_vreg_t(vgpu, TRANS_DDI_FUNC_CTL(TRANSCODER_A)) |=
-			(TRANS_DDI_BPC_8 | TRANS_DDI_MODE_SELECT_DVI |
+			(TRANS_DDI_BPC_8 | TRANS_DDI_MODE_SELECT_DP_SST |
 			(PORT_B << TRANS_DDI_PORT_SHIFT) |
 			TRANS_DDI_FUNC_ENABLE);
 		if (IS_BROADWELL(dev_priv)) {
@@ -240,7 +240,7 @@ static void emulate_monitor_status_change(struct intel_vgpu *vgpu)
 			~(TRANS_DDI_BPC_MASK | TRANS_DDI_MODE_SELECT_MASK |
 			TRANS_DDI_PORT_MASK);
 		vgpu_vreg_t(vgpu, TRANS_DDI_FUNC_CTL(TRANSCODER_A)) |=
-			(TRANS_DDI_BPC_8 | TRANS_DDI_MODE_SELECT_DVI |
+			(TRANS_DDI_BPC_8 | TRANS_DDI_MODE_SELECT_DP_SST |
 			(PORT_C << TRANS_DDI_PORT_SHIFT) |
 			TRANS_DDI_FUNC_ENABLE);
 		if (IS_BROADWELL(dev_priv)) {
@@ -260,7 +260,7 @@ static void emulate_monitor_status_change(struct intel_vgpu *vgpu)
 			~(TRANS_DDI_BPC_MASK | TRANS_DDI_MODE_SELECT_MASK |
 			TRANS_DDI_PORT_MASK);
 		vgpu_vreg_t(vgpu, TRANS_DDI_FUNC_CTL(TRANSCODER_A)) |=
-			(TRANS_DDI_BPC_8 | TRANS_DDI_MODE_SELECT_DVI |
+			(TRANS_DDI_BPC_8 | TRANS_DDI_MODE_SELECT_DP_SST |
 			(PORT_D << TRANS_DDI_PORT_SHIFT) |
 			TRANS_DDI_FUNC_ENABLE);
 		if (IS_BROADWELL(dev_priv)) {
@@ -316,6 +316,10 @@ static void clean_virtual_dp_monitor(struct intel_vgpu *vgpu, int port_num)
 	port->dpcd = NULL;
 }
 
+unsigned char* intel_vgpu_get_default_edid(){
+	return virtual_dp_monitor_edid[1];
+}
+
 static int setup_virtual_dp_monitor(struct intel_vgpu *vgpu, int port_num,
 				    int type, unsigned int resolution)
 {
@@ -334,7 +338,7 @@ static int setup_virtual_dp_monitor(struct intel_vgpu *vgpu, int port_num,
 		return -ENOMEM;
 	}
 
-	memcpy(port->edid->edid_block, virtual_dp_monitor_edid[resolution],
+	memcpy(port->edid->edid_block, virtual_dp_monitor_edid[1],
 			EDID_SIZE);
 	port->edid->data_valid = true;
 

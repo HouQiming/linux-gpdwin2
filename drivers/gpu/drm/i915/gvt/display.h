@@ -206,4 +206,6 @@ void intel_vgpu_clean_display(struct intel_vgpu *vgpu);
 
 int pipe_is_enabled(struct intel_vgpu *vgpu, int pipe);
 
+unsigned char* intel_vgpu_get_default_edid(void);
+
 #endif

@@ -1,10 +1,14 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * u_ether.c -- Ethernet-over-USB link layer utilities for Gadget stack
  *
  * Copyright (C) 2003-2005,2008 David Brownell
  * Copyright (C) 2003-2004 Robert Schwebel, Benedikt Spranger
  * Copyright (C) 2008 Nokia Corporation
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  */
 
 /* #define VERBOSE_DEBUG */
@@ -204,7 +208,8 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	 * means receivers can't recover lost synch on their own (because
 	 * new packets don't only start after a short RX).
 	 */
-	size += sizeof(struct ethhdr) + dev->net->mtu + RX_EXTRA;
+	//size += sizeof(struct ethhdr) + dev->net->mtu + RX_EXTRA;
+	size += sizeof(struct ethhdr) + GETHER_MAX_ETH_FRAME_LEN + RX_EXTRA + 1518 - 246;
 	size += dev->port_usb->header_len;
 
 	if (g->quirk_ep_out_aligned_size) {
@@ -254,6 +259,8 @@ static void rx_complete(struct usb_ep *ep, struct usb_request *req)
 	struct eth_dev	*dev = ep->driver_data;
 	int		status = req->status;
 
+	//DBG(dev, "rx_complete %d\n", status);
+	
 	switch (status) {
 
 	/* normal completion */
@@ -280,8 +287,7 @@ static void rx_complete(struct usb_ep *ep, struct usb_request *req)
 
 		skb2 = skb_dequeue(&dev->rx_frames);
 		while (skb2) {
-			if (status < 0
-					|| ETH_HLEN > skb2->len
+			if (ETH_HLEN > skb2->len
 					|| skb2->len > GETHER_MAX_ETH_FRAME_LEN) {
 				dev->net->stats.rx_errors++;
 				dev->net->stats.rx_length_errors++;
@@ -401,12 +407,12 @@ done:
 static void rx_fill(struct eth_dev *dev, gfp_t gfp_flags)
 {
 	struct usb_request	*req;
+	struct usb_request	*tmp;
 	unsigned long		flags;
 
 	/* fill unused rxq slots with some skb */
 	spin_lock_irqsave(&dev->req_lock, flags);
-	while (!list_empty(&dev->rx_reqs)) {
-		req = list_first_entry(&dev->rx_reqs, struct usb_request, list);
+	list_for_each_entry_safe(req, tmp, &dev->rx_reqs, list) {
 		list_del_init(&req->list);
 		spin_unlock_irqrestore(&dev->req_lock, flags);
 
@@ -438,6 +444,7 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 	struct sk_buff	*skb = req->context;
 	struct eth_dev	*dev = ep->driver_data;
 
+	//DBG(dev, "tx_complete %d\n", req->status);
 	switch (req->status) {
 	default:
 		dev->net->stats.tx_errors++;
@@ -843,8 +850,7 @@ struct net_device *gether_setup_name_default(const char *netname)
 
 	net->ethtool_ops = &ops;
 	SET_NETDEV_DEVTYPE(net, &gadget_type);
-
-	/* MTU range: 14 - 15412 */
+	
 	net->min_mtu = ETH_HLEN;
 	net->max_mtu = GETHER_MAX_ETH_FRAME_LEN;
 
@@ -1125,6 +1131,7 @@ void gether_disconnect(struct gether *link)
 {
 	struct eth_dev		*dev = link->ioport;
 	struct usb_request	*req;
+	struct usb_request	*tmp;
 
 	WARN_ON(!dev);
 	if (!dev)
@@ -1141,8 +1148,7 @@ void gether_disconnect(struct gether *link)
 	 */
 	usb_ep_disable(link->in_ep);
 	spin_lock(&dev->req_lock);
-	while (!list_empty(&dev->tx_reqs)) {
-		req = list_first_entry(&dev->tx_reqs, struct usb_request, list);
+	list_for_each_entry_safe(req, tmp, &dev->tx_reqs, list) {
 		list_del(&req->list);
 
 		spin_unlock(&dev->req_lock);
@@ -1154,8 +1160,7 @@ void gether_disconnect(struct gether *link)
 
 	usb_ep_disable(link->out_ep);
 	spin_lock(&dev->req_lock);
-	while (!list_empty(&dev->rx_reqs)) {
-		req = list_first_entry(&dev->rx_reqs, struct usb_request, list);
+	list_for_each_entry_safe(req, tmp, &dev->rx_reqs, list) {
 		list_del(&req->list);
 
 		spin_unlock(&dev->req_lock);

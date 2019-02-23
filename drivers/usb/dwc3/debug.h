@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /**
  * debug.h - DesignWare USB3 DRD Controller Debug Header
  *
@@ -6,6 +5,15 @@
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2  of
+ * the License as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef __DWC3_DEBUG_H
@@ -107,35 +115,6 @@ dwc3_gadget_link_string(enum dwc3_link_state link_state)
 		return "Compliance";
 	case DWC3_LINK_STATE_LPBK:
 		return "Loopback";
-	case DWC3_LINK_STATE_RESET:
-		return "Reset";
-	case DWC3_LINK_STATE_RESUME:
-		return "Resume";
-	default:
-		return "UNKNOWN link state\n";
-	}
-}
-
-/**
- * dwc3_gadget_hs_link_string - returns highspeed and below link name
- * @link_state: link state code
- */
-static inline const char *
-dwc3_gadget_hs_link_string(enum dwc3_link_state link_state)
-{
-	switch (link_state) {
-	case DWC3_LINK_STATE_U0:
-		return "On";
-	case DWC3_LINK_STATE_U2:
-		return "Sleep";
-	case DWC3_LINK_STATE_U3:
-		return "Suspend";
-	case DWC3_LINK_STATE_SS_DIS:
-		return "Disconnected";
-	case DWC3_LINK_STATE_RX_DET:
-		return "Early Suspend";
-	case DWC3_LINK_STATE_RECOV:
-		return "Recovery";
 	case DWC3_LINK_STATE_RESET:
 		return "Reset";
 	case DWC3_LINK_STATE_RESUME:
@@ -275,15 +254,6 @@ static inline void dwc3_decode_set_clear_feature(__u8 t, __u8 b, __u16 v,
 					break;
 				case USB_DEVICE_TEST_MODE:
 					s = "Test Mode";
-					break;
-				case USB_DEVICE_U1_ENABLE:
-					s = "U1 Enable";
-					break;
-				case USB_DEVICE_U2_ENABLE:
-					s = "U2 Enable";
-					break;
-				case USB_DEVICE_LTM_ENABLE:
-					s = "LTM Enable";
 					break;
 				default:
 					s = "UNKNOWN";
@@ -504,37 +474,21 @@ dwc3_ep_event_string(char *str, const struct dwc3_event_depevt *event,
 	if (ret < 0)
 		return "UNKNOWN";
 
-	status = event->status;
-
 	switch (event->endpoint_event) {
 	case DWC3_DEPEVT_XFERCOMPLETE:
-		len = strlen(str);
-		sprintf(str + len, "Transfer Complete (%c%c%c)",
-				status & DEPEVT_STATUS_SHORT ? 'S' : 's',
-				status & DEPEVT_STATUS_IOC ? 'I' : 'i',
-				status & DEPEVT_STATUS_LST ? 'L' : 'l');
-
+		strcat(str, "Transfer Complete");
 		len = strlen(str);
 
 		if (epnum <= 1)
 			sprintf(str + len, " [%s]", dwc3_ep0_state_string(ep0state));
 		break;
 	case DWC3_DEPEVT_XFERINPROGRESS:
-		len = strlen(str);
-
-		sprintf(str + len, "Transfer In Progress [%d] (%c%c%c)",
-				event->parameters,
-				status & DEPEVT_STATUS_SHORT ? 'S' : 's',
-				status & DEPEVT_STATUS_IOC ? 'I' : 'i',
-				status & DEPEVT_STATUS_LST ? 'M' : 'm');
+		strcat(str, "Transfer In-Progress");
 		break;
 	case DWC3_DEPEVT_XFERNOTREADY:
-		len = strlen(str);
-
-		sprintf(str + len, "Transfer Not Ready [%d]%s",
-				event->parameters,
-				status & DEPEVT_STATUS_TRANSFER_ACTIVE ?
-				" (Active)" : " (Not Active)");
+		strcat(str, "Transfer Not Ready");
+		status = event->status & DEPEVT_STATUS_TRANSFER_ACTIVE;
+		strcat(str, status ? " (Active)" : " (Not Active)");
 
 		/* Control Endpoints */
 		if (epnum <= 1) {

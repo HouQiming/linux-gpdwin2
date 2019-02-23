@@ -350,19 +350,6 @@ static void ucsi_connector_change(struct work_struct *work)
 	}
 
 	if (con->status.change & UCSI_CONSTAT_CONNECT_CHANGE) {
-		typec_set_pwr_role(con->port, con->status.pwr_dir);
-
-		switch (con->status.partner_type) {
-		case UCSI_CONSTAT_PARTNER_TYPE_UFP:
-			typec_set_data_role(con->port, TYPEC_HOST);
-			break;
-		case UCSI_CONSTAT_PARTNER_TYPE_DFP:
-			typec_set_data_role(con->port, TYPEC_DEVICE);
-			break;
-		default:
-			break;
-		}
-
 		if (con->status.connected)
 			ucsi_register_partner(con);
 		else
@@ -391,7 +378,12 @@ void ucsi_notify(struct ucsi *ucsi)
 	struct ucsi_cci *cci;
 
 	/* There is no requirement to sync here, but no harm either. */
-	ucsi_sync(ucsi);
+	/*
+	Ironically, this is the one line that is actually harmful on
+	a GPD Win 2, since the Win 2's ACPI table wipes the connector
+	changed bits every time one *queries* the mailbox.
+	*/
+	/*ucsi_sync(ucsi);*/
 
 	cci = &ucsi->ppm->data->cci;
 
@@ -480,10 +472,17 @@ err:
 static int ucsi_role_cmd(struct ucsi_connector *con, struct ucsi_control *ctrl)
 {
 	int ret;
+	struct ucsi_control c;
+	
+	ucsi_reset_ppm(con->ucsi);
+
+	UCSI_CMD_SET_NTFY_ENABLE(c, UCSI_ENABLE_NTFY_ALL);
+	ucsi_run_command(con->ucsi, &c, NULL, 0);
+
+	ucsi_reset_connector(con, true);
 
 	ret = ucsi_run_command(con->ucsi, ctrl, NULL, 0);
 	if (ret == -ETIMEDOUT) {
-		struct ucsi_control c;
 
 		/* PPM most likely stopped responding. Resetting everything. */
 		ucsi_reset_ppm(con->ucsi);
@@ -504,16 +503,29 @@ ucsi_dr_swap(const struct typec_capability *cap, enum typec_data_role role)
 	struct ucsi_control ctrl;
 	int ret = 0;
 
-	if (!con->partner)
+	/*
+	The GPD Win 2's Embedded Controller + Type C controller combo
+	mis-detects the data role sometimes when cabled to an USB Type A
+	port of a PC. On top of this, they also *falsely report* the data
+	role as correctly detected.
+	
+	So we need to remove the "protection" code and shove the DR swap
+	down their respective throat. They complain about an I/O error the
+	first time, but the second time they accept it. Tsundere.
+	*/
+	/*if (!con->partner)
 		return -ENOTCONN;
+	*/
 
 	mutex_lock(&con->ucsi->ppm_lock);
 
+	/*
 	if ((con->status.partner_type == UCSI_CONSTAT_PARTNER_TYPE_DFP &&
 	     role == TYPEC_DEVICE) ||
 	    (con->status.partner_type == UCSI_CONSTAT_PARTNER_TYPE_UFP &&
 	     role == TYPEC_HOST))
 		goto out_unlock;
+	*/
 
 	UCSI_CMD_SET_UOR(ctrl, con, role);
 	ret = ucsi_role_cmd(con, &ctrl);

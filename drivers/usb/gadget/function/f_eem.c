@@ -1,10 +1,14 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * f_eem.c -- USB CDC Ethernet (EEM) link function driver
  *
  * Copyright (C) 2003-2005,2008 David Brownell
  * Copyright (C) 2008 Nokia Corporation
  * Copyright (C) 2009 EF Johnson Technologies
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  */
 
 #include <linux/kernel.h>
@@ -166,7 +170,7 @@ static struct usb_gadget_strings *eem_strings[] = {
 static int eem_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 {
 	struct usb_composite_dev *cdev = f->config->cdev;
-	int			value = -EOPNOTSUPP;
+	//int			value = -EOPNOTSUPP;
 	u16			w_index = le16_to_cpu(ctrl->wIndex);
 	u16			w_value = le16_to_cpu(ctrl->wValue);
 	u16			w_length = le16_to_cpu(ctrl->wLength);
@@ -176,7 +180,8 @@ static int eem_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		w_value, w_index, w_length);
 
 	/* device either stalls (value < 0) or reports success */
-	return value;
+	//return value;
+	return 0;
 }
 
 
@@ -321,12 +326,12 @@ fail:
 	return status;
 }
 
-static void eem_cmd_complete(struct usb_ep *ep, struct usb_request *req)
-{
-	struct sk_buff *skb = (struct sk_buff *)req->context;
+//static void eem_cmd_complete(struct usb_ep *ep, struct usb_request *req)
+//{
+//	struct sk_buff *skb = (struct sk_buff *)req->context;
 
-	dev_kfree_skb_any(skb);
-}
+//	dev_kfree_skb_any(skb);
+//}
 
 /*
  * Add the EEM header and ethernet checksum.
@@ -339,11 +344,13 @@ static struct sk_buff *eem_wrap(struct gether *port, struct sk_buff *skb)
 	struct usb_ep	*in = port->in_ep;
 	int		headroom, tailroom, padlen = 0;
 	u16		len;
-
+	u32 crc=0xdeadbeef;
+	
 	if (!skb)
 		return NULL;
 
 	len = skb->len;
+	crc = ~crc32_le(~0, skb->data, len);
 	headroom = skb_headroom(skb);
 	tailroom = skb_tailroom(skb);
 
@@ -365,7 +372,7 @@ static struct sk_buff *eem_wrap(struct gether *port, struct sk_buff *skb)
 
 done:
 	/* use the "no CRC" option */
-	put_unaligned_be32(0xdeadbeef, skb_put(skb, 4));
+	put_unaligned_le32(crc, skb_put(skb, 4));
 
 	/* EEM packet header format:
 	 * b0..13:	length of ethernet frame
@@ -373,11 +380,11 @@ done:
 	 * b15:		bmType (0 == data)
 	 */
 	len = skb->len;
-	put_unaligned_le16(len & 0x3FFF, skb_push(skb, 2));
+	put_unaligned_be16((len & 0x3FFF)+0x4000, skb_push(skb, 2));
 
 	/* add a zero-length EEM packet, if needed */
 	if (padlen)
-		put_unaligned_le16(0, skb_put(skb, 2));
+		put_unaligned_be16(0, skb_put(skb, 2));
 
 	return skb;
 }
@@ -392,6 +399,26 @@ static int eem_unwrap(struct gether *port,
 {
 	struct usb_composite_dev	*cdev = port->func.config->cdev;
 	int				status = 0;
+	if(port->packet_tail){
+		int headroom = skb_headroom(skb);
+		if(headroom<port->tail_len){
+			struct sk_buff *skb2 = skb_copy_expand(skb,
+						port->tail_len,
+						0,
+						GFP_ATOMIC);
+			if (unlikely(!skb2)) {
+				DBG(cdev, "unable to add packet tail\n");
+				status=-ENOMEM;
+				goto error;
+			}
+			dev_kfree_skb_any(skb);
+			skb=skb2;
+		}
+		memcpy(skb_push(skb,port->tail_len),port->packet_tail,port->tail_len);
+		kfree(port->packet_tail);
+		port->packet_tail=NULL;
+		port->tail_len=0;
+	}
 
 	do {
 		struct sk_buff	*skb2;
@@ -405,15 +432,16 @@ static int eem_unwrap(struct gether *port,
 		}
 
 		/* remove the EEM header */
-		header = get_unaligned_le16(skb->data);
+		header = get_unaligned_be16(skb->data);
 		skb_pull(skb, EEM_HLEN);
 
 		/* EEM packet header format:
 		 * b0..14:	EEM type dependent (data or command)
 		 * b15:		bmType (0 == data, 1 == command)
 		 */
+		//DBG(cdev, "EEM header %04x\n", header);
 		if (header & BIT(15)) {
-			struct usb_request	*req = cdev->req;
+			//struct usb_request	*req = cdev->req;
 			u16			bmEEMCmd;
 
 			/* EEM command packet format:
@@ -428,28 +456,28 @@ static int eem_unwrap(struct gether *port,
 			bmEEMCmd = (header >> 11) & 0x7;
 			switch (bmEEMCmd) {
 			case 0: /* echo */
-				len = header & 0x7FF;
-				if (skb->len < len) {
-					status = -EOVERFLOW;
-					goto error;
-				}
+				//len = header & 0x7FF;
+				//if (skb->len < len) {
+				//	status = -EOVERFLOW;
+				//	goto error;
+				//}
 
-				skb2 = skb_clone(skb, GFP_ATOMIC);
-				if (unlikely(!skb2)) {
-					DBG(cdev, "EEM echo response error\n");
-					goto next;
-				}
-				skb_trim(skb2, len);
-				put_unaligned_le16(BIT(15) | BIT(11) | len,
-							skb_push(skb2, 2));
-				skb_copy_bits(skb2, 0, req->buf, skb2->len);
-				req->length = skb2->len;
-				req->complete = eem_cmd_complete;
-				req->zero = 1;
-				req->context = skb2;
-				if (usb_ep_queue(port->in_ep, req, GFP_ATOMIC))
-					DBG(cdev, "echo response queue fail\n");
-				break;
+				//skb2 = skb_clone(skb, GFP_ATOMIC);
+				//if (unlikely(!skb2)) {
+				//	DBG(cdev, "EEM echo response error\n");
+				//	goto next;
+				//}
+				//skb_trim(skb2, len);
+				//put_unaligned_be16(BIT(15) | BIT(11) | len,
+				//			skb_push(skb2, 2));
+				//skb_copy_bits(skb2, 0, req->buf, skb2->len);
+				//req->length = skb2->len;
+				//req->complete = eem_cmd_complete;
+				//req->zero = 1;
+				//req->context = skb2;
+				//if (usb_ep_queue(port->in_ep, req, GFP_ATOMIC))
+				//	DBG(cdev, "echo response queue fail\n");
+				//break;
 
 			case 1:  /* echo response */
 			case 2:  /* suspend hint */
@@ -473,15 +501,25 @@ static int eem_unwrap(struct gether *port,
 			 * b15:		bmType (0 == data)
 			 */
 			len = header & 0x3FFF;
-			if ((skb->len < len)
-					|| (len < (ETH_HLEN + ETH_FCS_LEN))) {
+			if (  (len < (ETH_HLEN + ETH_FCS_LEN))) {
 				status = -EINVAL;
+				DBG(cdev, "bad EEM len %d %d\n",len,skb->len);
+				goto error;
+			}
+			if(skb->len < len){
+				//this doesn't work, why?
+				//put_unaligned_be16(header, skb_push(skb, 2));
+				//port->packet_tail=kzalloc(skb->len,GFP_KERNEL);
+				//port->tail_len=skb->len;
+				//memcpy(port->packet_tail,skb->data,skb->len);
+				status = -EINVAL;
+				DBG(cdev, "bad EEM len %d %d\n",len,skb->len);
 				goto error;
 			}
 
 			/* validate CRC */
 			if (header & BIT(14)) {
-				crc = get_unaligned_le32(skb->data + len
+				crc = get_unaligned_be32(skb->data + len
 							- ETH_FCS_LEN);
 				crc2 = ~crc32_le(~0,
 						skb->data, len - ETH_FCS_LEN);
@@ -491,7 +529,7 @@ static int eem_unwrap(struct gether *port,
 				crc2 = 0xdeadbeef;
 			}
 			if (crc != crc2) {
-				DBG(cdev, "invalid EEM CRC\n");
+				DBG(cdev, "invalid EEM CRC %08x %08x\n",crc,crc2);
 				goto next;
 			}
 
@@ -507,10 +545,12 @@ static int eem_unwrap(struct gether *port,
 						0,
 						GFP_ATOMIC);
 			if (unlikely(!skb3)) {
+				DBG(cdev, "unable to realign EEM packet\n");
 				dev_kfree_skb_any(skb2);
 				continue;
 			}
 			dev_kfree_skb_any(skb2);
+			//DBG(cdev, "queue EEM packet\n");
 			skb_queue_tail(list, skb3);
 		}
 next:
@@ -551,7 +591,7 @@ static struct configfs_attribute *eem_attrs[] = {
 	NULL,
 };
 
-static const struct config_item_type eem_func_type = {
+static struct config_item_type eem_func_type = {
 	.ct_item_ops	= &eem_item_ops,
 	.ct_attrs	= eem_attrs,
 	.ct_owner	= THIS_MODULE,

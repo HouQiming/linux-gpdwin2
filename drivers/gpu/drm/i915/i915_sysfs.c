@@ -31,6 +31,7 @@
 #include <linux/sysfs.h>
 #include "intel_drv.h"
 #include "i915_drv.h"
+#include "gvt/gvt.h"
 
 static inline struct drm_i915_private *kdev_minor_to_i915(struct device *kdev)
 {
@@ -576,6 +577,39 @@ static void i915_setup_error_capture(struct device *kdev) {}
 static void i915_teardown_error_capture(struct device *kdev) {}
 #endif
 
+static ssize_t gvt_edid_read(struct file *filp, struct kobject *kobj,
+				struct bin_attribute *attr, char *buf,
+				loff_t off, size_t count)
+{
+	unsigned char* data=intel_vgpu_get_default_edid();
+	if(off<0||off>=EDID_SIZE){return -ENXIO;}
+	count = min_t(size_t, EDID_SIZE - off, count);
+	count = min_t(size_t, EDID_SIZE, count);
+	memcpy(buf,data+off,count);
+	return count;
+}
+
+static ssize_t gvt_edid_write(struct file *file, struct kobject *kobj,
+				 struct bin_attribute *attr, char *buf,
+				 loff_t off, size_t count)
+{
+	unsigned char* data=intel_vgpu_get_default_edid();
+	if(off<0||off>=EDID_SIZE){return -ENXIO;}
+	count = min_t(size_t, EDID_SIZE - off, count);
+	count = min_t(size_t, EDID_SIZE, count);
+	memcpy(data+off,buf,count);
+	return count;
+}
+
+static const struct bin_attribute gvt_edid_attr = {
+	.attr = {.name = "gvt_edid", .mode = (S_IRUSR | S_IWUSR)},
+	.size = EDID_SIZE,
+	.read = gvt_edid_read,
+	.write = gvt_edid_write,
+	.mmap = NULL,
+	.private = (void *)0
+};
+
 void i915_setup_sysfs(struct drm_i915_private *dev_priv)
 {
 	struct device *kdev = dev_priv->drm.primary->kdev;
@@ -623,11 +657,16 @@ void i915_setup_sysfs(struct drm_i915_private *dev_priv)
 		DRM_ERROR("RPS sysfs setup failed\n");
 
 	i915_setup_error_capture(kdev);
+
+	if (sysfs_create_bin_file(&kdev->kobj, &gvt_edid_attr))
+		DRM_ERROR("failed to create the gvt_edid file\n");
 }
 
 void i915_teardown_sysfs(struct drm_i915_private *dev_priv)
 {
 	struct device *kdev = dev_priv->drm.primary->kdev;
+
+	sysfs_remove_bin_file(&kdev->kobj, &gvt_edid_attr);
 
 	i915_teardown_error_capture(kdev);
 
