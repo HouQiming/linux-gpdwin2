@@ -797,6 +797,9 @@ static u8 *efi_utf16_to_utf8(u8 *dst, const u16 *src, int n)
 #define MAX_CMDLINE_ADDRESS	ULONG_MAX
 #endif
 
+//QM hack for a silent boot
+static char qm_hack_cmdline[]=" initrd=\\EFI\\ubuntu\\initrd5.img root=/dev/mapper/sda3_crypt ro quiet nosplash i915.enable_gvt=1 kvm.ignore_msrs=1 iommu=1 intel_iommu=on elevator=deadline default_hugepagesz=2M hugepagesz=2M hugepages=2560 transparent_hugepage=never modprobe.blacklist=sdhci_pci,sdhci,cqhci,mmc_core ipv6.disable=1";
+
 /*
  * Convert the unicode UEFI command line to ASCII to pass to kernel.
  * Size of memory allocated return in *cmd_line_len.
@@ -843,8 +846,14 @@ char *efi_convert_cmdline(efi_system_table_t *sys_table_arg,
 	s1 = efi_utf16_to_utf8(s1, s2, options_chars);
 	*s1 = '\0';
 
-	*cmd_line_len = options_bytes;
-	return (char *)cmdline_addr;
+	if(!options_bytes||!strstr(s1,"initrd=")){
+		//QM's hack cmdline
+		*cmd_line_len = sizeof(qm_hack_cmdline);
+		return (char*)qm_hack_cmdline;
+	}else{
+		*cmd_line_len = options_bytes;
+		return (char *)cmdline_addr;
+	}
 }
 
 /*

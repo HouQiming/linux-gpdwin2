@@ -1247,6 +1247,7 @@ void hidinput_hid_event(struct hid_device *hid, struct hid_field *field, struct 
 {
 	struct input_dev *input;
 	unsigned *quirks = &hid->quirks;
+	struct hid_usage remapped_usage;
 
 	if (!usage->type)
 		return;
@@ -1367,6 +1368,17 @@ void hidinput_hid_event(struct hid_device *hid, struct hid_field *field, struct 
 	    value == field->value[usage->usage_index])
 		return;
 
+	/* remap keyboard if needed */
+	{
+		int hid_keycode=(usage->hid&HID_USAGE);
+		if(usage->type == EV_KEY && (unsigned int)hid_keycode<(unsigned int)256 && hid->remap_lut[hid_keycode]!=hid_keycode){
+			memcpy(&remapped_usage,usage,sizeof(remapped_usage));
+			remapped_usage.hid=((remapped_usage.hid&~HID_USAGE)|hid->remap_lut[hid_keycode]);
+			remapped_usage.code=hid_keyboard[hid->remap_lut[hid_keycode]];
+			usage=&remapped_usage;
+		}
+	}
+	
 	/* report the usage code as scancode if the key status has changed */
 	if (usage->type == EV_KEY &&
 	    (!test_bit(usage->code, input->key)) == value)

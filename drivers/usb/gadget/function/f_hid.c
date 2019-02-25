@@ -96,7 +96,7 @@ static struct hid_descriptor hidg_desc = {
 	.bCountryCode			= 0x00,
 	.bNumDescriptors		= 0x1,
 	/*.desc[0].bDescriptorType	= DYNAMIC */
-	/*.desc[0].wDescriptorLenght	= DYNAMIC */
+	/*.desc[0].wDescriptorLength	= DYNAMIC */
 };
 
 /* Super-Speed Support */

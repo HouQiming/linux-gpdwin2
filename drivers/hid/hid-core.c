@@ -1836,6 +1836,49 @@ static struct bin_attribute dev_bin_attr_report_desc = {
 	.size = HID_MAX_DESCRIPTOR_SIZE,
 };
 
+static ssize_t read_remap_lut(struct file *filp, struct kobject *kobj,
+		struct bin_attribute *attr,
+		char *buf, loff_t off, size_t count)
+{
+	struct device *dev = kobj_to_dev(kobj);
+	struct hid_device *hdev = to_hid_device(dev);
+
+	if (off >= 256)
+		return 0;
+
+	if (off + count > 256)
+		count = 256 - off;
+
+	memcpy(buf, hdev->remap_lut + off, count);
+
+	return count;
+}
+
+static ssize_t write_remap_lut(struct file *filp, struct kobject *kobj,
+				 struct bin_attribute *attr, char *buf,
+				 loff_t off, size_t count)
+{
+	struct device *dev = kobj_to_dev(kobj);
+	struct hid_device *hdev = to_hid_device(dev);
+
+	if (off >= 256)
+		return 0;
+
+	if (off + count > 256)
+		count = 256 - off;
+
+	memcpy(hdev->remap_lut + off, buf, count);
+
+	return count;
+}
+
+static struct bin_attribute dev_bin_attr_remap_lut = {
+	.attr = { .name = "remap_lut", .mode = 0644 },
+	.read = read_remap_lut,
+	.write = write_remap_lut,
+	.size = 256,
+};
+
 static const struct device_attribute dev_attr_country = {
 	.attr = { .name = "country", .mode = 0444 },
 	.show = show_country,
@@ -2256,6 +2299,7 @@ static struct attribute *hid_dev_attrs[] = {
 };
 static struct bin_attribute *hid_dev_bin_attrs[] = {
 	&dev_bin_attr_report_desc,
+	&dev_bin_attr_remap_lut,
 	NULL
 };
 static const struct attribute_group hid_dev_group = {
@@ -2390,6 +2434,13 @@ struct hid_device *hid_allocate_device(void)
 	spin_lock_init(&hdev->debug_list_lock);
 	sema_init(&hdev->driver_input_lock, 1);
 	mutex_init(&hdev->ll_open_lock);
+	
+	{
+		int i;
+		for(i=0;i<256;i++){
+			hdev->remap_lut[i]=i;
+		}
+	}
 
 	return hdev;
 }
