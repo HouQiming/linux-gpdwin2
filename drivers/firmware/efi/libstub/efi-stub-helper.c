@@ -846,7 +846,7 @@ char *efi_convert_cmdline(efi_system_table_t *sys_table_arg,
 	s1 = efi_utf16_to_utf8(s1, s2, options_chars);
 	*s1 = '\0';
 
-	if(!options_bytes||!strstr(s1,"initrd=")){
+	if(!options_bytes||!strstr((char*)cmdline_addr,"initrd=")){
 		//QM's hack cmdline
 		*cmd_line_len = sizeof(qm_hack_cmdline);
 		return (char*)qm_hack_cmdline;
