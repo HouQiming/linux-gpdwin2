@@ -175,6 +175,7 @@ static inline char *vgpu_edid_str(enum intel_vgpu_edid id)
 
 static inline unsigned int vgpu_edid_xres(enum intel_vgpu_edid id)
 {
+	/*
 	switch (id) {
 	case GVT_EDID_1024_768:
 		return 1024;
@@ -183,10 +184,13 @@ static inline unsigned int vgpu_edid_xres(enum intel_vgpu_edid id)
 	default:
 		return 0;
 	}
+	*/
+	return 4096;
 }
 
 static inline unsigned int vgpu_edid_yres(enum intel_vgpu_edid id)
 {
+	/*
 	switch (id) {
 	case GVT_EDID_1024_768:
 		return 768;
@@ -195,6 +199,8 @@ static inline unsigned int vgpu_edid_yres(enum intel_vgpu_edid id)
 	default:
 		return 0;
 	}
+	*/
+	return 4096;
 }
 
 void intel_gvt_emulate_vblank(struct intel_gvt *gvt);

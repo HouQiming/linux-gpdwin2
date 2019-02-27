@@ -29,6 +29,7 @@
 
 #define DUAL_ROLE_CFG1			0x6c
 #define HOST_MODE			BIT(29)
+#define DEVICE_MODE			BIT(28)
 
 #define DUAL_ROLE_CFG1_POLL_TIMEOUT	1000
 
@@ -69,10 +70,14 @@ static int intel_xhci_usb_set_role(struct device *dev, enum usb_role role)
 	case USB_ROLE_HOST:
 		val &= ~SW_IDPIN;
 		val &= ~SW_VBUS_VALID;
+		val &= 0xfffffff8;
+		val |= 5;
 		break;
 	case USB_ROLE_DEVICE:
 		val |= SW_IDPIN;
 		val |= SW_VBUS_VALID;
+		val &= 0xfffffff8;
+		val |= 6;
 		break;
 	}
 	val |= SW_IDPIN_EN;
@@ -87,7 +92,7 @@ static int intel_xhci_usb_set_role(struct device *dev, enum usb_role role)
 	/* Polling on CFG1 register to confirm mode switch.*/
 	do {
 		val = readl(data->base + DUAL_ROLE_CFG1);
-		if (!!(val & HOST_MODE) == (role == USB_ROLE_HOST)) {
+		if (!!(val & HOST_MODE) == (role == USB_ROLE_HOST) && !!(val & DEVICE_MODE) == (role == USB_ROLE_DEVICE)) {
 			pm_runtime_put(dev);
 			return 0;
 		}
