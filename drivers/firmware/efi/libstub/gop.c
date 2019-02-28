@@ -213,11 +213,26 @@ __gop_query64(efi_system_table_t *sys_table_arg,
 	efi_graphics_output_protocol_query_mode query_mode;
 	efi_status_t status;
 	unsigned long m;
+	int i;
 
 	m = gop64->mode;
 	mode = (struct efi_graphics_output_protocol_mode_64 *)m;
 	query_mode = (void *)(unsigned long)gop64->query_mode;
 
+	//hack for GPD Win 2: it boots in 640x480 but it should be 720x1280, so we need to call set_mode
+	for(i=0;i<mode->max_mode;i++){
+		status = __efi_call_early(query_mode, (void *)gop64, i, size, info);
+		if(status==EFI_SUCCESS&&(*info)->horizontal_resolution==720&&(*info)->vertical_resolution==1280&&i!=mode->mode){
+			status = __efi_call_early(query_mode, (void *)gop64, mode->mode, size, info);
+			if (status==EFI_SUCCESS&&(*info)->horizontal_resolution==640&&(*info)->vertical_resolution==480){
+				status = __efi_call_early((void *)(unsigned long)gop64->set_mode, (void *)gop64, i);
+				m = gop64->mode;
+				mode = (struct efi_graphics_output_protocol_mode_64 *)m;
+				break;
+			}
+		}
+	}
+	
 	status = __efi_call_early(query_mode, (void *)gop64, mode->mode, size,
 				  info);
 	if (status != EFI_SUCCESS)
