@@ -204,7 +204,8 @@ static bool validate_hotspot(struct intel_vgpu_cursor_plane_format *c)
 static int vgpu_get_plane_info(struct drm_device *dev,
 		struct intel_vgpu *vgpu,
 		struct intel_vgpu_fb_info *info,
-		int plane_id)
+		int plane_id,
+		int pipe_index)
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_vgpu_primary_plane_format p;
@@ -212,7 +213,7 @@ static int vgpu_get_plane_info(struct drm_device *dev,
 	int ret;
 
 	if (plane_id == DRM_PLANE_TYPE_PRIMARY) {
-		ret = intel_vgpu_decode_primary_plane(vgpu, &p);
+		ret = intel_vgpu_decode_primary_plane(vgpu, &p, pipe_index);
 		if (ret)
 			return ret;
 		info->start = p.base;
@@ -221,6 +222,9 @@ static int vgpu_get_plane_info(struct drm_device *dev,
 		info->height = p.height;
 		info->stride = p.stride;
 		info->drm_format = p.drm_format;
+		//offset for overlay planes
+		info->x_pos = p.x_offset;
+		info->y_pos = p.y_offset;
 
 		switch (p.tiled) {
 		case PLANE_CTL_TILED_LINEAR:
@@ -378,7 +382,8 @@ int intel_vgpu_query_plane(struct intel_vgpu *vgpu, void *args)
 		return -EINVAL;
 
 	ret = vgpu_get_plane_info(dev, vgpu, &fb_info,
-					gfx_plane_info->drm_plane_type);
+					gfx_plane_info->drm_plane_type,
+					gfx_plane_info->region_index);
 	if (ret != 0)
 		goto out;
 

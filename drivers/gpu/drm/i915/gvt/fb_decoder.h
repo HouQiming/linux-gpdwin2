@@ -160,7 +160,8 @@ struct intel_vgpu_fb_format {
 };
 
 int intel_vgpu_decode_primary_plane(struct intel_vgpu *vgpu,
-	struct intel_vgpu_primary_plane_format *plane);
+	struct intel_vgpu_primary_plane_format *plane,
+	int pipe_index);
 int intel_vgpu_decode_cursor_plane(struct intel_vgpu *vgpu,
 	struct intel_vgpu_cursor_plane_format *plane);
 int intel_vgpu_decode_sprite_plane(struct intel_vgpu *vgpu,

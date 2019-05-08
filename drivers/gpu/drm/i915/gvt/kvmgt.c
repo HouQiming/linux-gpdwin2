@@ -622,7 +622,7 @@ static int kvmgt_set_edid(void *p_vgpu, int port_num)
 	base->vfio_edid_regs.edid_offset = EDID_BLOB_OFFSET;
 	base->vfio_edid_regs.edid_max_size = EDID_SIZE;
 	base->vfio_edid_regs.edid_size = EDID_SIZE;
-	//todo: actually fetch resolution from port->edid->edid_block
+	//actually fetch resolution from port->edid->edid_block
 	base->vfio_edid_regs.max_xres = vgpu_edid_xres(port->id);
 	base->vfio_edid_regs.max_yres = vgpu_edid_yres(port->id);
 	base->edid_blob = port->edid->edid_block;

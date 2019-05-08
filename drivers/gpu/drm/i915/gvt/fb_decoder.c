@@ -179,13 +179,18 @@ static u32 intel_vgpu_get_stride(struct intel_vgpu *vgpu, int pipe,
 	return stride;
 }
 
-static int get_active_pipe(struct intel_vgpu *vgpu)
+static int get_active_pipe(struct intel_vgpu *vgpu, int pipe_index)
 {
 	int i;
 
-	for (i = 0; i < I915_MAX_PIPES; i++)
-		if (pipe_is_enabled(vgpu, i))
-			break;
+	for (i = 0; i < I915_MAX_PIPES; i++) {
+		if (pipe_is_enabled(vgpu, i)) {
+			if (pipe_index<=0) {
+				break;
+			}
+			pipe_index -= 1;
+		}
+	}
 
 	return i;
 }
@@ -200,13 +205,14 @@ static int get_active_pipe(struct intel_vgpu *vgpu)
  * 0 on success, non-zero if failed.
  */
 int intel_vgpu_decode_primary_plane(struct intel_vgpu *vgpu,
-	struct intel_vgpu_primary_plane_format *plane)
+	struct intel_vgpu_primary_plane_format *plane,
+	int pipe_index)
 {
 	u32 val, fmt;
 	struct drm_i915_private *dev_priv = vgpu->gvt->dev_priv;
 	int pipe;
 
-	pipe = get_active_pipe(vgpu);
+	pipe = get_active_pipe(vgpu, pipe_index);
 	if (pipe >= I915_MAX_PIPES)
 		return -ENODEV;
 
@@ -245,6 +251,7 @@ int intel_vgpu_decode_primary_plane(struct intel_vgpu *vgpu,
 	plane->hw_format = fmt;
 
 	plane->base = vgpu_vreg_t(vgpu, DSPSURF(pipe)) & I915_GTT_PAGE_MASK;
+	//todo: also validate size
 	if (!intel_gvt_ggtt_validate_range(vgpu, plane->base, 0))
 		return  -EINVAL;
 
@@ -273,11 +280,16 @@ int intel_vgpu_decode_primary_plane(struct intel_vgpu *vgpu,
 	//		_PIPE_V_SRCSZ_MASK) >> _PIPE_V_SRCSZ_SHIFT;
 	//plane->height += 1;	/* raw height is one minus the real value */
 
-	val = vgpu_vreg_t(vgpu, DSPTILEOFF(pipe));
-	plane->x_offset = (val & _PRI_PLANE_X_OFF_MASK) >>
-		_PRI_PLANE_X_OFF_SHIFT;
-	plane->y_offset = (val & _PRI_PLANE_Y_OFF_MASK) >>
-		_PRI_PLANE_Y_OFF_SHIFT;
+	//val = vgpu_vreg_t(vgpu, DSPTILEOFF(pipe));
+	//plane->x_offset = (val & _PRI_PLANE_X_OFF_MASK) >>
+	//	_PRI_PLANE_X_OFF_SHIFT;
+	//plane->y_offset = (val & _PRI_PLANE_Y_OFF_MASK) >>
+	//	_PRI_PLANE_Y_OFF_SHIFT;
+	
+	//the real overlay offset: DSPOFFSET, DSPPOS, DSPTILEOFF?
+	val = vgpu_vreg_t(vgpu, DSPPOS(pipe));
+	plane->x_offset = val&0xffff;
+	plane->y_offset = val>>16;
 
 	return 0;
 }
@@ -343,7 +355,7 @@ int intel_vgpu_decode_cursor_plane(struct intel_vgpu *vgpu,
 	struct drm_i915_private *dev_priv = vgpu->gvt->dev_priv;
 	int pipe;
 
-	pipe = get_active_pipe(vgpu);
+	pipe = get_active_pipe(vgpu, 0);
 	if (pipe >= I915_MAX_PIPES)
 		return -ENODEV;
 
@@ -422,7 +434,7 @@ int intel_vgpu_decode_sprite_plane(struct intel_vgpu *vgpu,
 	int drm_format;
 	int pipe;
 
-	pipe = get_active_pipe(vgpu);
+	pipe = get_active_pipe(vgpu, 0);
 	if (pipe >= I915_MAX_PIPES)
 		return -ENODEV;
 
