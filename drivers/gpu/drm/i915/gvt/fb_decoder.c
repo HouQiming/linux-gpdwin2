@@ -260,12 +260,18 @@ int intel_vgpu_decode_primary_plane(struct intel_vgpu *vgpu,
 			(_PRI_PLANE_STRIDE_MASK >> 6) :
 				_PRI_PLANE_STRIDE_MASK, plane->bpp);
 
-	plane->width = (vgpu_vreg_t(vgpu, PIPESRC(pipe)) & _PIPE_H_SRCSZ_MASK) >>
-		_PIPE_H_SRCSZ_SHIFT;
+	//use DSPSIZE instead - which returns correct size for video overlay planes
+	val = vgpu_vreg_t(vgpu, DSPSIZE(pipe));
+	plane->width = val&0xffff;
 	plane->width += 1;
-	plane->height = (vgpu_vreg_t(vgpu, PIPESRC(pipe)) &
-			_PIPE_V_SRCSZ_MASK) >> _PIPE_V_SRCSZ_SHIFT;
-	plane->height += 1;	/* raw height is one minus the real value */
+	plane->height = val>>16;
+	plane->height += 1;
+	//plane->width = (vgpu_vreg_t(vgpu, PIPESRC(pipe)) & _PIPE_H_SRCSZ_MASK) >>
+	//	_PIPE_H_SRCSZ_SHIFT;
+	//plane->width += 1;
+	//plane->height = (vgpu_vreg_t(vgpu, PIPESRC(pipe)) &
+	//		_PIPE_V_SRCSZ_MASK) >> _PIPE_V_SRCSZ_SHIFT;
+	//plane->height += 1;	/* raw height is one minus the real value */
 
 	val = vgpu_vreg_t(vgpu, DSPTILEOFF(pipe));
 	plane->x_offset = (val & _PRI_PLANE_X_OFF_MASK) >>
